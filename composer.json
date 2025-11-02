@@ -19,12 +19,12 @@
   },
   "autoload": {
     "psr-4": {
-      "ParkGeeYoong\\\\MyFeeder\\\\": "src/"
+      "ParkGeeYoong\\MyFeeder\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "ParkGeeYoong\\\\MyFeeder\\\\Tests\\\\": "tests/"
+      "ParkGeeYoong\\MyFeeder\\Tests\\": "tests/"
     }
   },
   "scripts": {
@@ -33,7 +33,7 @@
   "extra": {
     "laravel": {
       "providers": [
-        "ParkGeeYoong\\\\MyFeeder\\\\NeoFeederServiceProvider"
+        "ParkGeeYoong\\MyFeeder\\NeoFeederServiceProvider"
       ]
     }
   },
