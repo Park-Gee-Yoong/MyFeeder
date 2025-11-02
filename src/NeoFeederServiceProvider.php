@@ -25,3 +25,4 @@ class NeoFeederServiceProvider extends ServiceProvider
         ], 'config');
     }
 }
+
