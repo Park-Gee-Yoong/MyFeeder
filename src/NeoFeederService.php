@@ -60,7 +60,7 @@ class NeoFeederService
 
     /**
      * Memanggil Web Service NeoFeeder (runWS)
-     *
+     
      * @param string $act
      * @param string $filter
      * @param mixed $limit
@@ -112,7 +112,7 @@ class NeoFeederService
     }
 
     /**
-     * Helper detWs like before
+     * Helper detWs seperti sebelumnya
      */
     public function detWs(string $fitur, string $field, string $id): array
     {
