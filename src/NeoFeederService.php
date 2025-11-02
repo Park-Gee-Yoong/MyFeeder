@@ -23,7 +23,7 @@ class NeoFeederService
 
     /**
      * Ambil token dari NeoFeeder
-     *
+     
      * @return array
      * @throws NeoFeederException
      */
