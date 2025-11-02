@@ -1,4 +1,5 @@
-<?php
+﻿<?php
+
 namespace ParkGeeYoong\MyFeeder;
 
 use Illuminate\Support\ServiceProvider;
@@ -8,10 +9,10 @@ class NeoFeederServiceProvider extends ServiceProvider
     public function register()
     {
         // merge konfigurasi default package
-        \->mergeConfigFrom(__DIR__.'/../config/neofeeder.php', 'neofeeder');
+        $this->mergeConfigFrom(__DIR__.'/../config/neofeeder.php', 'neofeeder');
 
         // singleton service
-        \->app->singleton(NeoFeederService::class, function (\) {
+        $this->app->singleton(NeoFeederService::class, function ($app) {
             return new NeoFeederService();
         });
     }
@@ -19,7 +20,7 @@ class NeoFeederServiceProvider extends ServiceProvider
     public function boot()
     {
         // publish config
-        \->publishes([
+        $this->publishes([
             __DIR__.'/../config/neofeeder.php' => config_path('neofeeder.php'),
         ], 'config');
     }
