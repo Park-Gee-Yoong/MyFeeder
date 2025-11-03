@@ -120,4 +120,11 @@ class NeoFeederService
         $filter = "{$field} = '{$newId}'";
         return $this->runWS($fitur, $filter, '', '', '');
     }
+
+    public function getProfilPT(): array
+    {
+        $fitur = 'GetProfilPT';
+        $filter = "";
+        return $this->runWS($fitur, $filter, '', '', '');
+    }
 }
