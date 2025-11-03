@@ -4,7 +4,6 @@ namespace ParkGeeYoong\MyFeeder;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use ParkGeeYoong\MyFeeder\Exceptions\NeoFeederException;
 
 class NeoFeederService
 {
@@ -22,10 +21,60 @@ class NeoFeederService
     }
 
     /**
-     * Ambil token dari NeoFeeder
-     
-     * @return array
-     * @throws NeoFeederException
+     * Standardized success wrapper
+     */
+    protected function successResponse(mixed $data): array
+    {
+        return [
+            'error_code' => 0,
+            'error_desc' => '',
+            'data' => $data,
+        ];
+    }
+
+    /**
+     * Standardized error wrapper
+     */
+    protected function errorResponse(int $code, string $message): array
+    {
+        return [
+            'error_code' => $code,
+            'error_desc' => $message,
+            'data' => null,
+        ];
+    }
+
+    /**
+     * Internal: perform POST and return decoded json or throw (internal)
+     * Returns array|null (decoded json) or null on failure.
+     */
+    protected function postJson(array $payload): ?array
+    {
+        try {
+            $response = Http::timeout($this->timeout)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post($this->url, $payload);
+        } catch (\Throwable $e) {
+            Log::error('NeoFeeder HTTP error: ' . $e->getMessage(), ['exception' => $e, 'payload' => $payload]);
+            return null;
+        }
+
+        if (! $response->successful()) {
+            Log::error('NeoFeeder non-success response', ['status' => $response->status(), 'body' => $response->body(), 'payload' => $payload]);
+            return null;
+        }
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            Log::error('NeoFeeder invalid json', ['body' => $response->body(), 'payload' => $payload]);
+            return null;
+        }
+
+        return $json;
+    }
+
+    /**
+     * Ambil token dari NeoFeeder — mengembalikan struktur standar.
      */
     public function getToken(): array
     {
@@ -35,31 +84,26 @@ class NeoFeederService
             'password' => $this->password,
         ];
 
-        try {
-            $response = Http::timeout($this->timeout)
-                ->withHeaders(['Content-Type' => 'application/json'])
-                ->post($this->url, $payload);
-        } catch (\Throwable $e) {
-            Log::error('NeoFeeder getToken error: ' . $e->getMessage(), ['exception' => $e]);
-            throw new NeoFeederException('terputus dari neofeeder');
+        $json = $this->postJson($payload);
+
+        if ($json === null) {
+            return $this->errorResponse(404, 'terputus dari neofeeder');
         }
 
-        if (! $response->successful()) {
-            Log::error('NeoFeeder getToken non-success', ['status' => $response->status(), 'body' => $response->body()]);
-            throw new NeoFeederException('terputus dari neofeeder');
+        // Jika struktur JSON mengandung token di ['data']['token']
+        $token = $json['data']['token'] ?? null;
+
+        if (empty($token)) {
+            // jika response valid tapi token kosong -> anggap data kosong
+            return $this->errorResponse(204, 'data kosong dari neofeeder');
         }
 
-        $json = $response->json();
-        if (! is_array($json)) {
-            Log::error('NeoFeeder getToken invalid json', ['body' => $response->body()]);
-            throw new NeoFeederException('terputus dari neofeeder');
-        }
-
-        return $json;
+        // kembalikan token di dalam struktur standar (data: original data)
+        return $this->successResponse($json['data']);
     }
 
     /**
-     * Memanggil Web Service NeoFeeder (runWS)
+     * Memanggil Web Service NeoFeeder (runWS) — mengembalikan struktur standar.
      *
      * @param string $act
      * @param string $filter
@@ -67,16 +111,22 @@ class NeoFeederService
      * @param mixed $offset
      * @param string $order
      * @return array
-     * @throws NeoFeederException
      */
     public function runWS(string $act, string $filter = '', $limit = '', $offset = '', string $order = ''): array
     {
+        // pertama ambil token (struktur standar)
         $tokenResp = $this->getToken();
+
+        if (isset($tokenResp['error_code']) && $tokenResp['error_code'] !== 0) {
+            // kembalikan error/token-failed langsung
+            return $tokenResp;
+        }
+
+        // token tersedia pada tokenResp['data']['token']? (ingat getToken mengembalikan data bagian 'data')
         $token = $tokenResp['data']['token'] ?? null;
 
         if (empty($token)) {
-            Log::error('NeoFeeder token missing', ['response' => $tokenResp]);
-            throw new NeoFeederException('terputus dari neofeeder');
+            return $this->errorResponse(404, 'terputus dari neofeeder');
         }
 
         $payload = [
@@ -88,31 +138,23 @@ class NeoFeederService
             'order' => $order,
         ];
 
-        try {
-            $response = Http::timeout($this->timeout)
-                ->withHeaders(['Content-Type' => 'application/json'])
-                ->post($this->url, $payload);
-        } catch (\Throwable $e) {
-            Log::error('NeoFeeder runWS error: '.$e->getMessage(), ['exception' => $e, 'payload' => $payload]);
-            throw new NeoFeederException('terputus dari neofeeder');
+        $json = $this->postJson($payload);
+
+        if ($json === null) {
+            return $this->errorResponse(404, 'terputus dari neofeeder');
         }
 
-        if (! $response->successful()) {
-            Log::error('NeoFeeder runWS non-success', ['status' => $response->status(), 'body' => $response->body(), 'payload' => $payload]);
-            throw new NeoFeederException('terputus dari neofeeder');
+        // jika struktur sukses namun data kosong/null
+        if (empty($json['data'])) {
+            return $this->errorResponse(204, 'data kosong dari neofeeder');
         }
 
-        $json = $response->json();
-        if (! is_array($json)) {
-            Log::error('NeoFeeder runWS invalid json', ['body' => $response->body()]);
-            throw new NeoFeederException('terputus dari neofeeder');
-        }
-
-        return $json;
+        // sukses -> bungkus data asli (json['data']) jadi standar
+        return $this->successResponse($json['data']);
     }
 
     /**
-     * Helper detWs like before
+     * Helper detWs: shortcut untuk filter sederhana — mengembalikan struktur standar.
      */
     public function detWs(string $fitur, string $field, string $id): array
     {
@@ -120,7 +162,6 @@ class NeoFeederService
         $filter = "{$field} = '{$newId}'";
         return $this->runWS($fitur, $filter, '', '', '');
     }
-
     public function getProfilPT(): array
     {
         $fitur = 'GetProfilPT';
